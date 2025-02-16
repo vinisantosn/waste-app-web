@@ -3,34 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detecção de Alimentos</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css">
+    <title>Detecção de Desperdício de Alimentos</title>
     <style>
-        .video-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 80vh;
-        }
-        img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 10px;
-            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .title {
+        body {
             text-align: center;
+            background-color: #f4f4f4;
+        }
+        canvas {
+            display: block;
+            margin: auto;
+            border: 2px solid black;
         }
     </style>
 </head>
 <body>
-    <section class="section">
-        <div class="container">
-            <h1 class="title">Detecção de Alimentos</h1>
-            <div class="video-container">
-                <img src="{{ url_for('video_feed') }}">
-            </div>
-        </div>
-    </section>
+    <h1>Detecção de Desperdício de Alimentos</h1>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let isProcessing = false; // Evita o envio de múltiplos frames ao mesmo tempo
+
+        async function startCamera() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.play();
+
+            video.addEventListener('loadeddata', () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                setInterval(() => {
+                    if (!isProcessing) {
+                        sendFrame(video);
+                    }
+                }, 1500); // Reduziu a frequência para 1.5 segundos
+            });
+        }
+
+        function sendFrame(video) {
+            isProcessing = true;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append("frame", blob);
+
+                fetch("/process_frame", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    drawBoundingBoxes(data);
+                    isProcessing = false;
+                })
+                .catch(error => {
+                    console.error("Erro no envio do frame:", error);
+                    isProcessing = false;
+                });
+            }, "image/jpeg");
+        }
+
+        function drawBoundingBoxes(data) {
+            const ctx = canvas.getContext('2d');
+
+            const img = new Image();
+            img.src = data.processed_frame;
+
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            };
+        }
+
+        startCamera();
+    </script>
 </body>
 </html>
