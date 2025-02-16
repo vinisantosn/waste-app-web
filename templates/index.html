@@ -4,41 +4,76 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detecção de Desperdício de Alimentos</title>
+
+    <!-- Importando Bulma -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+
     <style>
         body {
-            text-align: center;
-            background-color: #f4f4f4;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 100%;
+            padding: 20px;
+        }
+        .video-container {
+            width: 100%;
+            position: relative;
         }
         canvas {
-            display: block;
-            margin: auto;
-            border: 2px solid black;
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            background: black;
+        }
+        .button {
+            width: 100%;
+            font-size: 1.2em;
+            margin-top: 15px;
         }
     </style>
 </head>
 <body>
-    <h1>Detecção de Desperdício de Alimentos</h1>
-    <canvas id="canvas"></canvas>
+    <section class="section">
+        <div class="container has-text-centered">
+            <h1 class="title is-4 has-text-primary">Detecção de Desperdício de Alimentos</h1>
+            <p class="subtitle is-6">Aponte a câmera traseira para os alimentos e veja a detecção em tempo real.</p>
+
+            <div class="video-container">
+                <canvas id="canvas"></canvas>
+            </div>
+
+            <button class="button is-primary is-medium" onclick="startCamera()">📷 Ativar Câmera</button>
+        </div>
+    </section>
+
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        let isProcessing = false; // Evita o envio de múltiplos frames ao mesmo tempo
+        let isProcessing = false;
 
         async function startCamera() {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            const video = document.createElement('video');
-            video.srcObject = stream;
-            video.play();
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.play();
 
-            video.addEventListener('loadeddata', () => {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                setInterval(() => {
-                    if (!isProcessing) {
-                        sendFrame(video);
-                    }
-                }, 1500); // Reduziu a frequência para 1.5 segundos
-            });
+                video.addEventListener('loadeddata', () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    setInterval(() => {
+                        if (!isProcessing) {
+                            sendFrame(video);
+                        }
+                    }, 1000);
+                });
+            } catch (error) {
+                console.error("Erro ao acessar a câmera:", error);
+                alert("⚠️ Não foi possível acessar a câmera. Verifique as permissões.");
+            }
         }
 
         function sendFrame(video) {
@@ -68,7 +103,6 @@
 
         function drawBoundingBoxes(data) {
             const ctx = canvas.getContext('2d');
-
             const img = new Image();
             img.src = data.processed_frame;
 
@@ -77,8 +111,6 @@
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             };
         }
-
-        startCamera();
     </script>
 </body>
 </html>
